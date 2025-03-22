@@ -1,0 +1,43 @@
+- name: Install Redis
+  apt:
+    name:
+      - libhiredis-dev
+      - redis-server 
+    state: present
+    update_cache: yes
+
+- name: Clone Gloo repository for benchmark
+  git:
+    repo: https://github.com/facebookincubator/gloo.git
+    dest: "{{ ansible_env.HOME }}/gloo"
+    version: e6d509b527712a143996f2f59a10480efa804f8b
+    force: yes
+
+- name: Create build directory for Gloo
+  file:
+    dest: "{{ ansible_env.HOME }}/gloo/build"
+    state: directory
+    mode: '0755'
+
+- name: Build and install Gloo benchmark
+  shell: |
+    source {{ conda_dir }}/bin/activate optireduce
+    cmake ../ \
+      -DUSE_REDIS=1 \
+      -DBUILD_BENCHMARK=1 
+    make -j$(nproc)
+  args:
+    chdir: "{{ ansible_env.HOME }}/gloo/build"
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+
+- name: Check if Gloo benchmark was built successfully
+  stat:
+    path: "{{ ansible_env.HOME }}/gloo/build/gloo/benchmark/benchmark"
+  register: benchmark_binary
+
+- name: Fail if benchmark binary wasn't created
+  fail:
+    msg: "Gloo benchmark failed to build properly"
+  when: not benchmark_binary.stat.exists

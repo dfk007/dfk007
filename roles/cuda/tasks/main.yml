@@ -1,0 +1,48 @@
+- name: Download CUDA keyring
+  get_url:
+    url: "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu{{ os_version_short }}/{{ os_arch }}/{{ cuda_keyring_deb }}"
+    dest: "/tmp/{{ cuda_keyring_deb }}"
+
+- name: Install CUDA keyring
+  command: dpkg -i /tmp/{{ cuda_keyring_deb }}
+
+- name: Install Nvidia Driver
+  apt:
+    name: nvidia-driver-{{ nvidia_version }}
+    state: present
+    update_cache: yes
+  timeout: 7200  # Allow up to 2 hour for the command to complete
+
+- name: Install CUDA
+  apt:
+    name: "cuda={{ cuda_version }}"
+    state: present
+    update_cache: yes
+  timeout: 7200
+
+- name: Install cuDNN
+  apt:
+    name: 
+      - "libcudnn8={{ cudnn_version }}"
+      - "libcudnn8-dev={{ cudnn_version }}"
+    state: present
+    update_cache: yes
+  timeout: 3600
+
+- name: Add CUDA paths to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: "{{ item }}"
+    state: present
+  with_items:
+    - 'export PATH="/usr/local/cuda/bin:$PATH"'
+    - 'export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"'
+
+- name: Restart the VM
+  reboot:
+    reboot_timeout: 600
+  ignore_errors: yes
+
+- name: Wait for the VM to become reachable again
+  wait_for_connection:
+    timeout: 300

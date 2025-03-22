@@ -1,0 +1,45 @@
+- name: Download Anaconda installer
+  get_url:
+    url: "{{ conda_url }}"
+    dest: "/tmp/{{ conda_installer }}"
+
+- name: Run Anaconda installer
+  shell: |
+    chmod +x /tmp/{{ conda_installer }} && /tmp/{{ conda_installer }} -b -p {{ conda_dir }}
+  args:
+    executable: /bin/bash
+
+- name: Create and activate conda environment
+  shell: |
+    {{ conda_dir }}/bin/conda init bash
+    {{ conda_dir }}/bin/conda create --name optireduce python={{ python_version }} -y
+    source {{ conda_dir }}/bin/activate optireduce
+    {{ conda_dir }}/bin/conda install -y \
+      numpy \
+      pandas \
+      pyyaml \
+      meson \
+      cmake \
+      ninja
+    {{ conda_dir }}/bin/conda install -c pytorch -y \
+      libpng \
+      libjpeg-turbo \
+      magma-cuda110
+  args:
+    executable: /bin/bash
+
+- name: Verify Python version in conda environment
+  shell: |
+    source {{ conda_dir }}/bin/activate optireduce && python --version
+  register: python_version_check
+  args:
+    executable: /bin/bash
+
+- name: Display Python version
+  debug:
+    msg: "Installed Python version: {{ python_version_check.stdout }}"
+
+- name: Clean Anaconda installer
+  file:
+    path: "/tmp/{{ conda_installer }}"
+    state: absent

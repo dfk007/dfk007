@@ -1,0 +1,10 @@
+---
+- name: Deploy OptiReduce Environment
+  hosts: gpu_nodes
+  become: yes
+  roles:
+    - { role: cuda, tags: ['cuda'] }
+    - { role: mellanox, tags: ['mellanox'] }
+    - { role: anaconda, tags: ['anaconda'] }
+    - { role: optireduce, tags: ['optireduce'] }
+    - { role: benchmark, tags: ['benchmark'] }

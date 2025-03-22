@@ -1,0 +1,82 @@
+- name: Set Mellanox OFED URL
+  set_fact:
+    ofed_url: "https://content.mellanox.com/ofed/MLNX_OFED-{{ ofed_version }}/MLNX_OFED_LINUX-{{ ofed_version }}-{{ os_distro }}{{ os_version }}-{{ os_arch }}.tgz"
+
+- name: Get kernel version
+  shell: uname -r
+  register: kernel_version_output
+
+- name: Set OFED kernel version
+  set_fact:
+    ofed_kernel: "{{ kernel_version_output.stdout }}"
+
+- name: Download Mellanox OFED
+  get_url:
+    url: "{{ ofed_url }}"
+    dest: "/tmp/{{ ofed_version }}.tgz"
+    timeout: 600
+
+- name: Create OFED directory
+  file:
+    path: "/tmp/MLNX_OFED"
+    state: directory
+    mode: '0755'
+
+- name: Extract Mellanox OFED
+  unarchive:
+    src: "/tmp/{{ ofed_version }}.tgz"
+    dest: "/tmp/MLNX_OFED"
+    remote_src: yes
+
+- name: Install required packages for OFED
+  apt:
+    name: 
+      - python3
+      - tcl
+      - tk
+      - chrpath
+      - dpatch
+      - autotools-dev
+      - debhelper
+      - dkms
+      - gfortran
+      - swig
+      - libgfortran5
+    state: present
+    update_cache: yes
+
+- name: Install Mellanox OFED
+  shell: |
+    cd /tmp/MLNX_OFED/MLNX_OFED_LINUX-{{ ofed_version }}-{{ os_distro }}{{ os_version }}-{{ os_arch }}
+    ./mlnxofedinstall --without-fw-update --all --without-dkms --add-kernel-support --kernel {{ ofed_kernel }} --force
+  timeout: 3600  # Allow up to 1 hour for the command to complete
+
+- name: Verify OFED installation
+  shell: |
+    ofed_info -s
+  register: ofed_check
+  ignore_errors: yes
+
+- name: Display OFED verification results
+  debug:
+    var: ofed_check.stdout_lines
+  when: ofed_check is success
+
+- name: Clean up OFED installation files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "/tmp/{{ ofed_version }}.tgz"
+    - "/tmp/MLNX_OFED"
+
+- name: Verify Mellanox devices
+  shell: |
+    ibv_devinfo
+  register: ibv_check
+  ignore_errors: yes
+
+- name: Display Mellanox devices info
+  debug:
+    var: ibv_check.stdout_lines
+  when: ibv_check is success

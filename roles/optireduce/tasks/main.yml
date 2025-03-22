@@ -1,0 +1,81 @@
+- name: Clone DPDK repository
+  git:
+    repo: https://github.com/DPDK/dpdk
+    dest: /usr/src/dpdk
+    version: "{{ dpdk_version }}"
+
+- name: Clone OptiReduce repository
+  git:
+    repo: https://github.com/OptiReduce/setup.git
+    dest: /tmp/setup
+
+- name: Build DPDK
+  shell: |
+    source {{ conda_dir }}/bin/activate optireduce
+    meson -Dexamples=all build && ninja -j $(nproc) -C build && ninja -j $(nproc) -C build install
+    ldconfig
+  args:
+    chdir: /usr/src/dpdk
+    executable: /bin/bash
+  timeout: 3600
+
+- name: Set up hugepages
+  shell: usertools/dpdk-hugepages.py -p 1G --setup 32G
+  args:
+    chdir: /usr/src/dpdk
+
+- name: Clone PyTorch repository
+  git:
+    repo: https://github.com/pytorch/pytorch
+    dest: /usr/src/pytorch
+    version: 0acbf8039abccfc17f9c8529d217209db5a7cc85
+
+- name: Initialize PyTorch submodules
+  shell: |
+    git submodule sync
+    git submodule update --init --recursive
+  args:
+    chdir: /usr/src/pytorch
+
+- name: Copy Gloo patch
+  copy:
+    src: /tmp/setup/patches/gloo.patch
+    dest: /usr/src/pytorch/third_party/gloo/
+    remote_src: yes
+
+- name: Apply patch to Gloo
+  shell: git apply gloo.patch
+  args:
+    chdir: /usr/src/pytorch/third_party/gloo/
+
+- name: Build and install OptiReduce
+  shell: |
+    source {{ conda_dir }}/bin/activate optireduce
+    pip install -r requirements.txt
+    CUDACXX=/usr/local/cuda/bin/nvcc BUILD_BINARY=0 BUILD_TEST=0 python setup.py install
+  args:
+    chdir: /usr/src/pytorch
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+  timeout: 7200
+
+- name: Clone Hadamard CUDA repository
+  git:
+    repo: https://github.com/HazyResearch/structured-nets.git
+    dest: /usr/src/structured-nets
+
+- name: Build and install Hadamard CUDA
+  shell: |
+    source {{ conda_dir }}/bin/activate optireduce
+    CUDACXX=/usr/local/cuda/bin/nvcc BUILD_BINARY=0 BUILD_TEST=0 python setup.py install
+  args:
+    chdir: /usr/src/structured-nets/pytorch/structure/hadamard_cuda
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/cuda/bin"
+
+- name: Clean up OptiReduce directory
+  file:
+    path: /tmp/setup
+    state: absent

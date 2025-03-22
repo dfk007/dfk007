@@ -1,0 +1,22 @@
+# Set OS distribution, version, and architecture facts
+os_distro: "{{ ansible_distribution | lower if ansible_facts is defined else 'unknown' }}"
+os_version: "{{ ansible_distribution_version if ansible_facts is defined else 'unknown' }}"
+os_arch: "{{ ansible_architecture if ansible_facts is defined else 'unknown' }}"
+os_version_short: "{{ os_version.split('.')[0] ~ os_version.split('.')[1] if os_version != 'unknown' else 'unknown' }}"
+
+# CUDA variables
+cuda_version: "11.7.0-1"
+nvidia_version: "560"
+cuda_keyring_deb: "cuda-keyring_1.1-1_all.deb"
+cudnn_version: "8.5.0.96-1+cuda11.7"
+
+# OFED variables
+ofed_version: "5.4-3.7.7.0"
+
+# Anaconda variables
+conda_version: "3-2023.09-0"
+conda_installer: "Anaconda{{ conda_version }}-Linux-x86_64.sh"
+conda_url: "https://repo.anaconda.com/archive/{{ conda_installer }}"
+conda_dir: "/opt/anaconda3"
+python_version: "3.9.19"
+dpdk_version: "v20.11"
